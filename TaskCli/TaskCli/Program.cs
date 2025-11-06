@@ -42,6 +42,9 @@ class TaskApp
                 case "add": return Add(args.Skip(1).ToArray());
                 case "update": return Update(args.Skip(1).ToArray());
                 case "delete": return Delete(args.Skip(1).ToArray());
+                case "mark-todo": return MarkStatus(args.Skip(1).ToArray(), TaskStatus.Todo);
+                case "mark-in-progress": return MarkStatus(args.Skip(1).ToArray(), TaskStatus.InProgress);
+                case "mark-done": return MarkStatus(args.Skip(1).ToArray(), TaskStatus.Done);
                 case "help":
                     PrintHelp();
                     return 0;
@@ -85,7 +88,7 @@ class TaskApp
         {
             Id = newId,
             Description = description,
-            TaskStatus = TaskStatus.ToDo,
+            TaskStatus = TaskStatus.Todo,
             CreatedAt = now,
             UpdatedAt = now
         });
@@ -148,6 +151,27 @@ class TaskApp
         return 0;
     }
 
+    private static int MarkStatus(string[] args, TaskStatus newStatus)
+    {
+        if (args.Length < 1 || !int.TryParse(args[0], out int id))
+        {
+            Console.Error.WriteLine($"Usage: task-cli {(newStatus == TaskStatus.InProgress ? "mark-in-progress" : newStatus == TaskStatus.Done ? "mark-done" : "mark-todo")} <id>");
+            return 1;
+        }
+        var tasks = LoadTasks();
+        var task = tasks.FirstOrDefault(t => t.Id == id);
+        if (task == null)
+        {
+            Console.Error.WriteLine($"Task with ID {id} not found.");
+            return 1;
+        }
+        task.TaskStatus = newStatus;
+        task.UpdatedAt = DateTimeOffset.UtcNow;
+        SaveTasks(tasks);
+        Console.WriteLine($"Task {id} marked as {newStatus.ToString().ToLowerInvariant().Replace("inprogress", "in-progress")}.");
+        return 0;
+    }
+
         private static List<TaskItem> LoadTasks()
     {
         try
@@ -197,7 +221,7 @@ class TaskApp
 
 enum TaskStatus
 {
-    ToDo,
+    Todo,
     InProgress,
     Done
 }
@@ -205,7 +229,7 @@ class TaskItem
 {
     public int Id { get; set; }
     public string Description { get; set; } = "";
-    public TaskStatus TaskStatus { get; set; } = TaskStatus.ToDo;
+    public TaskStatus TaskStatus { get; set; } = TaskStatus.Todo;
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 
