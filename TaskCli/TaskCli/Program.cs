@@ -41,6 +41,7 @@ class TaskApp
             {
                 case "add": return Add(args.Skip(1).ToArray());
                 case "update": return Update(args.Skip(1).ToArray());
+                case "delete": return Delete(args.Skip(1).ToArray());
                 case "help":
                     PrintHelp();
                     return 0;
@@ -94,7 +95,7 @@ class TaskApp
         return 0;
     }
 
-    private int Update(string[] args)
+    private static int Update(string[] args)
     {
         if (args.Length < 2 || !int.TryParse(args[0], out int id))
         {
@@ -124,7 +125,30 @@ class TaskApp
 
         return 0;
     }
-    private static List<TaskItem> LoadTasks()
+
+    private static int Delete(string[] args)
+    {
+        if (args.Length < 1 || !int.TryParse(args[0], out int id))
+        {
+            Console.Error.WriteLine("Usage: task-cli delete <id>");
+            return 1;
+        }
+
+        var tasks = LoadTasks();
+        var task = tasks.FirstOrDefault(t => t.Id == id);
+        if (task == null)
+        {
+            Console.Error.WriteLine($"Task with ID {id} not found.");
+            return 1;
+        }
+
+        tasks.Remove(task);
+        SaveTasks(tasks);
+        Console.WriteLine($"Task {id} deleted successfully.");
+        return 0;
+    }
+
+        private static List<TaskItem> LoadTasks()
     {
         try
         {
