@@ -45,6 +45,7 @@ class TaskApp
                 case "mark-todo": return MarkStatus(args.Skip(1).ToArray(), TaskStatus.Todo);
                 case "mark-in-progress": return MarkStatus(args.Skip(1).ToArray(), TaskStatus.InProgress);
                 case "mark-done": return MarkStatus(args.Skip(1).ToArray(), TaskStatus.Done);
+                case "list": return List(args.Skip(1).ToArray());
                 case "help":
                     PrintHelp();
                     return 0;
@@ -172,7 +173,56 @@ class TaskApp
         return 0;
     }
 
-        private static List<TaskItem> LoadTasks()
+    private static int List(string[] args)
+    {
+        // Filters: none | done | todo | in-progress
+        TaskStatus? filter = null;
+        if (args.Length > 0)
+        {
+            var key = args[0].ToLowerInvariant().Replace("_", "-");
+            filter = key switch
+            {
+                "done" => TaskStatus.Done,
+                "todo" => TaskStatus.Todo,
+                "in-progress" => TaskStatus.InProgress,
+                "inprogress" => TaskStatus.InProgress,
+                _ => null
+            };
+            if (filter is null)
+            {
+                Console.Error.WriteLine("Unknown status filter. Use: done | todo | in-progress");
+                return 1;
+            }
+        }
+
+        var tasks = LoadTasks();
+        if (filter is not null)
+            tasks = tasks.Where(t => t.TaskStatus == filter).ToList();
+
+        if (tasks.Count == 0)
+        {
+            Console.WriteLine("No tasks found.");
+            return 0;
+        }
+
+        // simple table output
+        Console.WriteLine($"{"ID",3}  {"STATUS",-12} {"UPDATED",-20}  DESCRIPTION");
+        foreach (var t in tasks.OrderBy(t => t.Id))
+        {
+            string status = t.TaskStatus switch
+            {
+                TaskStatus.Todo => "todo",
+                TaskStatus.InProgress => "in-progress",
+                TaskStatus.Done => "done",
+                _ => t.TaskStatus.ToString().ToLowerInvariant()
+            };
+            Console.WriteLine($"{t.Id,3}  {status,-12} {t.UpdatedAt.ToLocalTime():yyyy-MM-dd HH:mm}  {t.Description}");
+        }
+        return 0;
+    }
+
+
+    private static List<TaskItem> LoadTasks()
     {
         try
         {
@@ -193,6 +243,7 @@ class TaskApp
             return new List<TaskItem>();
         }
     }
+
 
     private static void SaveTasks(List<TaskItem> tasks)
     {
