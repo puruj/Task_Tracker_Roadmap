@@ -40,6 +40,7 @@ class TaskApp
             switch(cmd)
             {
                 case "add": return Add(args.Skip(1).ToArray());
+                case "update": return Update(args.Skip(1).ToArray());
                 case "help":
                     PrintHelp();
                     return 0;
@@ -56,7 +57,10 @@ class TaskApp
         }
 
     }
-        private static int Add(string[] args)
+
+
+
+    private static int Add(string[] args)
     {
         if (args.Length == 0)
         {
@@ -87,6 +91,37 @@ class TaskApp
 
         SaveTasks(tasks);
         Console.WriteLine($"Task added successfully (ID: {newId})");
+        return 0;
+    }
+
+    private int Update(string[] args)
+    {
+        if (args.Length < 2 || !int.TryParse(args[0], out int id))
+        {
+            Console.Error.WriteLine("Usage: task-cli update <id> \"new description\"");
+            return 1;
+        }
+
+        string newDescription = string.Join(" ", args.Skip(1)).Trim();
+        if (string.IsNullOrWhiteSpace(newDescription))
+        {
+            Console.Error.WriteLine("New description cannot be empty.");
+            return 1;
+        }
+
+        var tasks = LoadTasks();
+        var task = tasks.FirstOrDefault(t => t.Id == id);
+        if (task == null)
+        {
+            Console.Error.WriteLine($"Task with ID {id} not found.");
+            return 1;
+        }
+
+        task.Description = newDescription;
+        task.UpdatedAt = DateTimeOffset.UtcNow;
+        SaveTasks(tasks);
+        Console.WriteLine($"Task {id} updated successfully.");
+
         return 0;
     }
     private static List<TaskItem> LoadTasks()
