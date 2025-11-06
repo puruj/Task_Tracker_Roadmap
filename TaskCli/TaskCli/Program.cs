@@ -15,7 +15,7 @@ app.Run(args);
 class TaskApp
 {
     private const string fileName = "Tasks.Json";
-    private static readonly string dbPath = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, fileName);
+    private static readonly string dbPath = Path.Combine(Directory.GetCurrentDirectory(), fileName);
 
     private static readonly JsonSerializerOptions jsonOptions = new JsonSerializerOptions
     {
@@ -39,6 +39,7 @@ class TaskApp
 
             switch(cmd)
             {
+                case "add": return Add(args.Skip(1).ToArray());
                 case "help":
                     PrintHelp();
                     return 0;
@@ -54,6 +55,66 @@ class TaskApp
             return 1;
         }
 
+    }
+        private static int Add(string[] args)
+    {
+        if (args.Length == 0)
+        {
+            Console.Error.WriteLine("Usage: task-cli add \"description\"");
+            return 1;
+        }
+
+        string description = string.Join(" ", args).Trim();
+
+        if (string.IsNullOrWhiteSpace(description))
+        {
+            Console.Error.WriteLine("Description cannot be empty.");
+            return 1;
+        }
+
+        var tasks = LoadTasks();
+        int newId = tasks.Count == 0 ? 1 : tasks.Max(t => t.Id) + 1;
+        var now = DateTimeOffset.UtcNow;
+
+        tasks.Add(new TaskItem
+        {
+            Id = newId,
+            Description = description,
+            TaskStatus = TaskStatus.ToDo,
+            CreatedAt = now,
+            UpdatedAt = now
+        });
+
+        SaveTasks(tasks);
+        Console.WriteLine($"Task added successfully (ID: {newId})");
+        return 0;
+    }
+    private static List<TaskItem> LoadTasks()
+    {
+        try
+        {
+            if(!File.Exists(dbPath))
+            {
+                return new List<TaskItem>();
+            }
+            var json = File.ReadAllText(dbPath);
+            if(string.IsNullOrWhiteSpace(json))
+            {
+                return new List<TaskItem>();
+            }
+            return JsonSerializer.Deserialize<List<TaskItem>>(json, jsonOptions) ?? new List<TaskItem>();
+        }
+        catch
+        {
+            // if file is corrupt, fall back to empty list
+            return new List<TaskItem>();
+        }
+    }
+
+    private static void SaveTasks(List<TaskItem> tasks)
+    {
+        var json = JsonSerializer.Serialize(tasks, jsonOptions);
+        File.WriteAllText(dbPath, json);
     }
 
     private static void PrintHelp()
@@ -83,11 +144,11 @@ enum TaskStatus
 }
 class TaskItem
 {
-    public int id { get; set; }
-    public string description { get; set; } = "";
-    public TaskStatus taskStatus { get; set; } = TaskStatus.ToDo;
-    public DateTime createdAt { get; set; } = DateTime.Now;
-    public DateTime updatedAt { get; set; } = DateTime.Now;
+    public int Id { get; set; }
+    public string Description { get; set; } = "";
+    public TaskStatus TaskStatus { get; set; } = TaskStatus.ToDo;
+    public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
+    public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
 
 
 }
