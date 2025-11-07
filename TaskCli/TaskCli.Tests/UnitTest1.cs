@@ -12,8 +12,10 @@ namespace TaskCli.Tests
         [Fact]
         public void Add_NoDescription_ReturnsErrorAndShowsUsage()
         {
-            // Arrange: use a temp file as our "db"
-            var tempFile = Path.GetTempFileName();
+            var tempFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+            var originalOut = Console.Out;
+            var originalErr = Console.Error;
+
             try
             {
                 var app = new TaskApp(tempFile);
@@ -23,24 +25,31 @@ namespace TaskCli.Tests
                 Console.SetOut(output);
                 Console.SetError(error);
 
-                // Act
                 int code = app.Run(new[] { "add" });
 
-                // Assert
                 Assert.Equal(1, code);
                 Assert.Contains("Usage: task-cli add", error.ToString());
-                Assert.True(new FileInfo(tempFile).Length == 0);
+
+                // file should not be created / written
+                Assert.False(File.Exists(tempFile));
             }
             finally
             {
-                File.Delete(tempFile);
+                Console.SetOut(originalOut);
+                Console.SetError(originalErr);
+                // guard to avoid FileNotFoundException
+                if (File.Exists(tempFile))
+                {
+                    File.Delete(tempFile);   
+                }
             }
         }
+
 
         [Fact]
         public void Add_ValidDescription_CreatesTodoTaskWithId1()
         {
-            var tempFile = Path.GetTempFileName();
+            var tempFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
             try
             {
                 var app = new TaskApp(tempFile);
@@ -81,7 +90,48 @@ namespace TaskCli.Tests
         }
     }
 
-    public class ListCommandTests
+    public class UpdateCommandTests
+    {
+        [Fact]
+        public void Update_NoId_ReturnsErrorAndShowsUsage()
+        {
+            // Arrange: use a temp file as our "db"
+            var tempFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+            var originalOut = Console.Out;
+            var originalErr = Console.Error;
+            try
+            {
+                var app = new TaskApp(tempFile);
+
+                var output = new StringWriter();
+                var error = new StringWriter();
+                Console.SetOut(output);
+                Console.SetError(error);
+
+                // Act
+                int code = app.Run(new[] { "update" });
+
+                // Assert
+                Assert.Equal(1, code);
+                Assert.Contains("Usage: task-cli update", error.ToString());
+                // file should not be created / written
+                Assert.False(File.Exists(tempFile));
+            }
+            finally
+            {
+                Console.SetOut(originalOut);
+                Console.SetError(originalErr);
+                // guard to avoid FileNotFoundException
+                if (File.Exists(tempFile))
+                {
+                    File.Delete(tempFile);
+                }
+            }
+        }
+    }
+
+
+        public class ListCommandTests
     {
         [Fact]
         public void List_Done_FiltersOnlyDoneTasks()
