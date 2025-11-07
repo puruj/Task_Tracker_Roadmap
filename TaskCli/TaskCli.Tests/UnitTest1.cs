@@ -1,4 +1,4 @@
-namespace TaskCli.Tests
+﻿namespace TaskCli.Tests
 {
     using TaskCli;
     using System;
@@ -200,9 +200,55 @@ namespace TaskCli.Tests
 
                 // Assert
                 Assert.Equal(1, code);
-                Assert.Contains("Task with ID", error.ToString());
+                Assert.Contains("Task with ID 2 not found.", error.ToString());
 
                 // Ensure task file not modified
+                var after = File.ReadAllText(tempFile);
+                Assert.Equal(before, after);
+            }
+            finally
+            {
+                Console.SetOut(originalOut);
+                Console.SetError(originalErr);
+                if (File.Exists(tempFile))
+                    File.Delete(tempFile);
+            }
+        }
+
+        [Fact]
+        public void Update_InvalidId_ReturnsUsageAndDoesNotChangeTasks()
+        {
+            var tempFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+            var originalOut = Console.Out;
+            var originalErr = Console.Error;
+
+            try
+            {
+                var app = new TaskApp(tempFile);
+
+                // Seed a valid task so we can verify nothing changes
+                Console.SetOut(new StringWriter());
+                Console.SetError(new StringWriter());
+                var addCode = app.Run(new[] { "add", "Buy", "milk" });
+                Assert.Equal(0, addCode);
+
+                var before = File.ReadAllText(tempFile);
+
+                // Capture output for invalid update
+                var output = new StringWriter();
+                var error = new StringWriter();
+                Console.SetOut(output);
+                Console.SetError(error);
+
+                // Act: invalid id "abc" + some description text
+                int code = app.Run(new[] { "update", "abc", "new", "description" });
+
+                // Assert: hits the (!int.TryParse) path
+                Assert.Equal(1, code);
+                Assert.Contains("Usage: task-cli update <id> \"new description\"", error.ToString());
+                Assert.True(string.IsNullOrEmpty(output.ToString())); // no success message
+
+                // Assert: file unchanged
                 var after = File.ReadAllText(tempFile);
                 Assert.Equal(before, after);
             }
@@ -262,8 +308,194 @@ namespace TaskCli.Tests
 
                 var task = tasks![0];
                 Assert.Equal(1, task.Id);
-                Assert.Equal("Buy bread", task.Description);   // updated ?
-                Assert.Equal(TaskStatus.Todo, task.TaskStatus); // status unchanged ?
+                Assert.Equal("Buy bread", task.Description);   // updated ✅
+                Assert.Equal(TaskStatus.Todo, task.TaskStatus); // status unchanged ✅
+            }
+            finally
+            {
+                Console.SetOut(originalOut);
+                Console.SetError(originalErr);
+                if (File.Exists(tempFile))
+                    File.Delete(tempFile);
+            }
+        }
+
+    }
+
+
+    public class DeleteCommandTests()
+    {
+        [Fact]
+        public void Delete_NoId_ReturnsErrorAndShowsUsage()
+        {
+            // Arrange: use a temp file as our "db"
+            var tempFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+            var originalOut = Console.Out;
+            var originalErr = Console.Error;
+            try
+            {
+                var app = new TaskApp(tempFile);
+
+                var output = new StringWriter();
+                var error = new StringWriter();
+                Console.SetOut(output);
+                Console.SetError(error);
+
+                // Act
+                int code = app.Run(new[] { "Delete" });
+
+                // Assert
+                Assert.Equal(1, code);
+                Assert.Contains("Usage: task-cli delete", error.ToString());
+                // file should not be created / written
+                Assert.False(File.Exists(tempFile));
+            }
+            finally
+            {
+                Console.SetOut(originalOut);
+                Console.SetError(originalErr);
+                // guard to avoid FileNotFoundException
+                if (File.Exists(tempFile))
+                {
+                    File.Delete(tempFile);
+                }
+            }
+        }
+
+        [Fact]
+        public void Delete_IdNotFound_ReturnsErrorAndDoesNotChangeTasks()
+        {
+            var tempFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+            var originalOut = Console.Out;
+            var originalErr = Console.Error;
+
+            try
+            {
+                var app = new TaskApp(tempFile);
+
+                Console.SetOut(new StringWriter());
+                Console.SetError(new StringWriter());
+                app.Run(new[] { "add", "Buy", "milk" });
+
+                var before = File.ReadAllText(tempFile);
+
+                // Capture output for the delete attempt
+                var output = new StringWriter();
+                var error = new StringWriter();
+                Console.SetOut(output);
+                Console.SetError(error);
+
+                int code = app.Run(new[] { "delete", "2"});
+
+                // Assert
+                Assert.Equal(1, code);
+                Assert.Contains("Task with ID 2 not found.", error.ToString());
+
+                // Ensure task file not modified
+                var after = File.ReadAllText(tempFile);
+                Assert.Equal(before, after);
+            }
+            finally
+            {
+                Console.SetOut(originalOut);
+                Console.SetError(originalErr);
+                if (File.Exists(tempFile))
+                    File.Delete(tempFile);
+            }
+        }
+
+        [Fact]
+        public void Delete_InvalidId_ReturnsUsageAndDoesNotChangeTasks()
+        {
+            var tempFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+            var originalOut = Console.Out;
+            var originalErr = Console.Error;
+
+            try
+            {
+                var app = new TaskApp(tempFile);
+
+                // Seed a valid task so we can verify nothing changes
+                Console.SetOut(new StringWriter());
+                Console.SetError(new StringWriter());
+                var addCode = app.Run(new[] { "add", "Buy", "milk" });
+                Assert.Equal(0, addCode);
+
+                var before = File.ReadAllText(tempFile);
+
+                // Capture output for invalid update
+                var output = new StringWriter();
+                var error = new StringWriter();
+                Console.SetOut(output);
+                Console.SetError(error);
+
+                // Act: invalid id "abc"
+                int code = app.Run(new[] { "delete", "abc"});
+
+                // Assert: hits the (!int.TryParse) path
+                Assert.Equal(1, code);
+                Assert.Contains("Usage: task-cli delete <id>", error.ToString());
+                Assert.True(string.IsNullOrEmpty(output.ToString())); // no success message
+
+                // Assert: file unchanged
+                var after = File.ReadAllText(tempFile);
+                Assert.Equal(before, after);
+            }
+            finally
+            {
+                Console.SetOut(originalOut);
+                Console.SetError(originalErr);
+                if (File.Exists(tempFile))
+                    File.Delete(tempFile);
+            }
+        }
+
+        [Fact]
+        public void Delete_IdFound_DeletesTaskAndReturnsSuccess()
+        {
+            var tempFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+            var originalOut = Console.Out;
+            var originalErr = Console.Error;
+
+            try
+            {
+                var app = new TaskApp(tempFile);
+
+                // Seed task with ID 1
+                Console.SetOut(new StringWriter());
+                Console.SetError(new StringWriter());
+                var addCode = app.Run(new[] { "add", "Buy", "milk" });
+                Assert.Equal(0, addCode);
+
+                // Capture output for delete
+                var output = new StringWriter();
+                var error = new StringWriter();
+                Console.SetOut(output);
+                Console.SetError(error);
+
+                // Act: delete existing task 1
+                int code = app.Run(new[] { "delete", "1" });
+
+                // Assert: success + correct console output
+                Assert.Equal(0, code);
+                Assert.Contains("Task 1 deleted successfully.", output.ToString());
+                Assert.True(string.IsNullOrEmpty(error.ToString()));
+
+                // Assert: file actually updated (task removed)
+                var json = File.ReadAllText(tempFile);
+
+                var options = new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true,
+                    Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
+                };
+
+                var tasks = JsonSerializer.Deserialize<List<TaskItem>>(json, options);
+
+                Assert.NotNull(tasks);
+                Assert.Empty(tasks!); // ✅ no tasks left
+                                      // Or:
+                                      // Assert.DoesNotContain(tasks, t => t.Id == 1);
             }
             finally
             {
