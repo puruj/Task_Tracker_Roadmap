@@ -128,10 +128,156 @@ namespace TaskCli.Tests
                 }
             }
         }
+
+        [Fact]
+        public void Update_Id_WhitespaceDescription_ShowsEmptyDescriptionError_AndDoesNotChangeTask()
+        {
+            var tempFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+            var originalOut = Console.Out;
+            var originalErr = Console.Error;
+
+            try
+            {
+                var app = new TaskApp(tempFile);
+
+                // Seed a real task with ID 1
+                Console.SetOut(new StringWriter());
+                Console.SetError(new StringWriter());
+                app.Run(new[] { "add", "Buy", "milk" });
+
+                var before = File.ReadAllText(tempFile);
+
+                // Capture output for the update attempt
+                var output = new StringWriter();
+                var error = new StringWriter();
+                Console.SetOut(output);
+                Console.SetError(error);
+
+                // Act: valid id, whitespace-only description => should hit the branch
+                int code = app.Run(new[] { "update", "1", "   " });
+
+                // Assert
+                Assert.Equal(1, code);
+                Assert.Contains("New description cannot be empty.", error.ToString());
+
+                // Ensure task file not modified
+                var after = File.ReadAllText(tempFile);
+                Assert.Equal(before, after);
+            }
+            finally
+            {
+                Console.SetOut(originalOut);
+                Console.SetError(originalErr);
+                if (File.Exists(tempFile))
+                    File.Delete(tempFile);
+            }
+        }
+
+        [Fact]
+        public void Update_IdNotFound_ReturnsErrorAndDoesNotChangeTasks()
+        {
+            var tempFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+            var originalOut = Console.Out;
+            var originalErr = Console.Error;
+
+            try
+            {
+                var app = new TaskApp(tempFile);
+
+                Console.SetOut(new StringWriter());
+                Console.SetError(new StringWriter());
+                app.Run(new[] { "add", "Buy", "milk" });
+
+                var before = File.ReadAllText(tempFile);
+
+                // Capture output for the update attempt
+                var output = new StringWriter();
+                var error = new StringWriter();
+                Console.SetOut(output);
+                Console.SetError(error);
+
+                int code = app.Run(new[] { "update", "2", "new description" });
+
+                // Assert
+                Assert.Equal(1, code);
+                Assert.Contains("Task with ID", error.ToString());
+
+                // Ensure task file not modified
+                var after = File.ReadAllText(tempFile);
+                Assert.Equal(before, after);
+            }
+            finally
+            {
+                Console.SetOut(originalOut);
+                Console.SetError(originalErr);
+                if (File.Exists(tempFile))
+                    File.Delete(tempFile);
+            }
+        }
+
+        [Fact]
+        public void Update_IdFound_UpdatesTaskAndReturnsSuccess()
+        {
+            var tempFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+            var originalOut = Console.Out;
+            var originalErr = Console.Error;
+
+            try
+            {
+                var app = new TaskApp(tempFile);
+
+                // Seed task with ID 1
+                Console.SetOut(new StringWriter());
+                Console.SetError(new StringWriter());
+                var addCode = app.Run(new[] { "add", "Buy", "milk" });
+                Assert.Equal(0, addCode);
+
+                // Capture output for update
+                var output = new StringWriter();
+                var error = new StringWriter();
+                Console.SetOut(output);
+                Console.SetError(error);
+
+                // Act: valid id + new description
+                int code = app.Run(new[] { "update", "1", "Buy", "bread" });
+
+                // Assert: success + correct console output
+                Assert.Equal(0, code);
+                Assert.Contains("Task 1 updated successfully.", output.ToString());
+                Assert.True(string.IsNullOrEmpty(error.ToString()));
+
+                // Assert: file actually updated
+                var json = File.ReadAllText(tempFile);
+
+                var options = new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true,
+                    Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
+                };
+
+                var tasks = JsonSerializer.Deserialize<List<TaskItem>>(json, options);
+
+                Assert.NotNull(tasks);
+                Assert.Single(tasks);
+
+                var task = tasks![0];
+                Assert.Equal(1, task.Id);
+                Assert.Equal("Buy bread", task.Description);   // updated ?
+                Assert.Equal(TaskStatus.Todo, task.TaskStatus); // status unchanged ?
+            }
+            finally
+            {
+                Console.SetOut(originalOut);
+                Console.SetError(originalErr);
+                if (File.Exists(tempFile))
+                    File.Delete(tempFile);
+            }
+        }
+
     }
 
 
-        public class ListCommandTests
+    public class ListCommandTests
     {
         [Fact]
         public void List_Done_FiltersOnlyDoneTasks()
