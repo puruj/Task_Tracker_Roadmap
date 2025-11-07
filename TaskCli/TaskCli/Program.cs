@@ -1,21 +1,15 @@
-﻿// add, update, delete tasks
-// mark tasks as complete or in prorgress
-// list all tasks
-// list tasks that are done
-// list all tasks not done
-// list task that are in progress
+﻿namespace TaskCli;
 
-using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 
-var app = new TaskApp();
-app.Run(args);
+//TaskApp app = new TaskApp(Path.Combine(Directory.GetCurrentDirectory(), "Tasks.json"));
+//return app.Run(args);
 
-class TaskApp
+
+public class TaskApp
 {
-    private const string fileName = "Tasks.Json";
-    private static readonly string dbPath = Path.Combine(Directory.GetCurrentDirectory(), fileName);
+    private readonly string _dbPath;
 
     private static readonly JsonSerializerOptions jsonOptions = new JsonSerializerOptions
     {
@@ -25,11 +19,22 @@ class TaskApp
         Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
     };
 
+    public static int Main(string[] args)
+    {
+        var app = new TaskApp(Path.Combine(Directory.GetCurrentDirectory(), "Tasks.json"));
+        return app.Run(args);
+    }
+
+    public TaskApp(string dbPath)
+    {
+        _dbPath = dbPath;
+    }
+
     public int Run(string[] args)
     {
         try
         {
-            if(args.Length == 0)
+            if (args.Length == 0)
             {
                 PrintHelp();
                 return 0;
@@ -37,7 +42,7 @@ class TaskApp
 
             string cmd = args[0].ToLowerInvariant();
 
-            switch(cmd)
+            switch (cmd)
             {
                 case "add": return Add(args.Skip(1).ToArray());
                 case "update": return Update(args.Skip(1).ToArray());
@@ -65,7 +70,7 @@ class TaskApp
 
 
 
-    private static int Add(string[] args)
+    private int Add(string[] args)
     {
         if (args.Length == 0)
         {
@@ -99,7 +104,7 @@ class TaskApp
         return 0;
     }
 
-    private static int Update(string[] args)
+    private int Update(string[] args)
     {
         if (args.Length < 2 || !int.TryParse(args[0], out int id))
         {
@@ -130,7 +135,7 @@ class TaskApp
         return 0;
     }
 
-    private static int Delete(string[] args)
+    private int Delete(string[] args)
     {
         if (args.Length < 1 || !int.TryParse(args[0], out int id))
         {
@@ -152,7 +157,7 @@ class TaskApp
         return 0;
     }
 
-    private static int MarkStatus(string[] args, TaskStatus newStatus)
+    private int MarkStatus(string[] args, TaskStatus newStatus)
     {
         if (args.Length < 1 || !int.TryParse(args[0], out int id))
         {
@@ -173,7 +178,7 @@ class TaskApp
         return 0;
     }
 
-    private static int List(string[] args)
+    private int List(string[] args)
     {
         // Filters: none | done | todo | in-progress
         TaskStatus? filter = null;
@@ -222,16 +227,16 @@ class TaskApp
     }
 
 
-    private static List<TaskItem> LoadTasks()
+    private List<TaskItem> LoadTasks()
     {
         try
         {
-            if(!File.Exists(dbPath))
+            if (!File.Exists(_dbPath))
             {
                 return new List<TaskItem>();
             }
-            var json = File.ReadAllText(dbPath);
-            if(string.IsNullOrWhiteSpace(json))
+            var json = File.ReadAllText(_dbPath);
+            if (string.IsNullOrWhiteSpace(json))
             {
                 return new List<TaskItem>();
             }
@@ -245,10 +250,10 @@ class TaskApp
     }
 
 
-    private static void SaveTasks(List<TaskItem> tasks)
+    private void SaveTasks(List<TaskItem> tasks)
     {
         var json = JsonSerializer.Serialize(tasks, jsonOptions);
-        File.WriteAllText(dbPath, json);
+        File.WriteAllText(_dbPath, json);
     }
 
     private static void PrintHelp()
@@ -270,19 +275,17 @@ class TaskApp
     }
 }
 
-enum TaskStatus
+public enum TaskStatus
 {
     Todo,
     InProgress,
     Done
 }
-class TaskItem
+public class TaskItem
 {
     public int Id { get; set; }
     public string Description { get; set; } = "";
     public TaskStatus TaskStatus { get; set; } = TaskStatus.Todo;
     public DateTimeOffset CreatedAt { get; set; } = DateTimeOffset.UtcNow;
     public DateTimeOffset UpdatedAt { get; set; } = DateTimeOffset.UtcNow;
-
-
 }
