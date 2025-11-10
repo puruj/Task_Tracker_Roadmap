@@ -364,9 +364,7 @@
                     File.Delete(tempFile);
             }
         }
-
     }
-
 
     public class DeleteCommandTests()
     {
@@ -553,6 +551,133 @@
 
     }
 
+    public class MarkStatusCommandTests
+    {
+        [Fact]
+        public void MarkInProgress_NoId_ShowsUsageAndReturnsError()
+        {
+            var tempFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+            var originalOut = Console.Out;
+            var originalErr = Console.Error;
+
+            try
+            {
+                var app = new TaskApp(tempFile);
+
+                var output = new StringWriter();
+                var error = new StringWriter();
+                Console.SetOut(output);
+                Console.SetError(error);
+
+                // No ID passed
+                int code = app.Run(new[] { "mark-in-progress" });
+
+                Assert.Equal(1, code);
+                Assert.Contains("Usage: task-cli mark-in-progress <id>", error.ToString());
+                // nothing should have been written
+                Assert.False(File.Exists(tempFile));
+            }
+            finally
+            {
+                Console.SetOut(originalOut);
+                Console.SetError(originalErr);
+                if (File.Exists(tempFile))
+                {
+                    File.Delete(tempFile);
+                }
+            }
+        }
+
+        [Fact]
+        public void MarkInProgress_TaskNotFound_ReturnsErrorAndDoesNotChangeFile()
+        {
+            var tempFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+            var originalOut = Console.Out;
+            var originalErr = Console.Error;
+
+            try
+            {
+                var app = new TaskApp(tempFile);
+
+                var output = new StringWriter();
+                var error = new StringWriter();
+                Console.SetOut(output);
+                Console.SetError(error);
+
+                var addCode = app.Run(new[] { "add", "Sample", "task" });
+                Assert.Equal(0, addCode);
+
+                Console.SetOut(new StringWriter());
+                Console.SetError(error);
+
+                // use an ID that doesn't exist
+                int code = app.Run(new[] { "mark-in-progress", "999" });
+
+                Assert.Equal(1, code);
+                Assert.Contains("Task with ID 999 not found.", error.ToString());
+            }
+            finally
+            {
+                Console.SetOut(originalOut);
+                Console.SetError(originalErr);
+                if (File.Exists(tempFile))
+                {
+                    File.Delete(tempFile);
+                }
+            }
+        }
+
+        [Fact]
+        public void MarkInProgress_ValidId_UpdatesStatusAndPersists()
+        {
+            var tempFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+            var originalOut = Console.Out;
+            var originalErr = Console.Error;
+
+            try
+            {
+                var app = new TaskApp(tempFile);
+
+                // Add a task first
+                Console.SetOut(new StringWriter());
+                Console.SetError(new StringWriter());
+                var addCode = app.Run(new[] { "add", "Sample", "task" });
+                Assert.Equal(0, addCode);
+
+                // Act: mark it in-progress
+                var output = new StringWriter();
+                Console.SetOut(output);
+                Console.SetError(new StringWriter());
+
+                int code = app.Run(new[] { "mark-in-progress", "1" });
+
+                Assert.Equal(0, code);
+                Assert.Contains("Task 1 marked as in-progress.", output.ToString());
+
+                // Verify JSON
+                var json = File.ReadAllText(tempFile);
+                var options = new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true,
+                    Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
+                };
+                var tasks = JsonSerializer.Deserialize<List<TaskItem>>(json, options);
+
+                Assert.NotNull(tasks);
+                Assert.Single(tasks);
+                var task = tasks![0];
+                Assert.Equal(1, task.Id);
+                Assert.Equal(TaskStatus.InProgress, task.TaskStatus);
+            }
+            finally
+            {
+                Console.SetOut(originalOut);
+                Console.SetError(originalErr);
+                if (File.Exists(tempFile)) File.Delete(tempFile);
+            }
+        }
+
+    }
 
     public class ListCommandTests
     {
