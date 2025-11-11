@@ -682,9 +682,93 @@
     public class ListCommandTests
     {
         [Fact]
+        public void List_InvalidFilter_ShowsErrorAndUsage()
+        {
+            var tempFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+            var originalOut = Console.Out;
+            var originalErr = Console.Error;
+            try
+            {
+                var app = new TaskApp(tempFile);
+
+                var output = new StringWriter();
+                var error = new StringWriter();
+                Console.SetOut(output);
+                Console.SetError(error);
+
+                // Act
+                int code = app.Run(new[] { "list", "invalid-filter" });
+
+                // Assert
+                Assert.Equal(1, code);
+                Assert.Contains("Unknown status filter. Use: done | todo | in-progress", error.ToString());
+            }
+            finally
+            {
+                Console.SetOut(originalOut);
+                Console.SetError(originalErr);
+                File.Delete(tempFile);
+            }
+        }
+
+
+        [Fact]
+        public void List_Todo_FiltersOnlyTodoTasks()
+        {
+            var tempFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+            var originalOut = Console.Out;
+            var originalErr = Console.Error;
+            try
+            {
+                // Arrange: seed two tasks (one todo, one done)
+                var seedTasks = new[]
+                {
+                new TaskItem { Id = 1, Description = "todo-task", TaskStatus = TaskStatus.Todo },
+                new TaskItem { Id = 2, Description = "done-task", TaskStatus = TaskStatus.Done },
+            };
+
+                var jsonOptions = new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                    Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
+                };
+
+                File.WriteAllText(tempFile, JsonSerializer.Serialize(seedTasks, jsonOptions));
+
+                var app = new TaskApp(tempFile);
+
+                var output = new StringWriter();
+                Console.SetOut(output);
+                Console.SetError(new StringWriter());
+
+                // Act
+                int code = app.Run(new[] { "list", "todo" });
+
+                // Assert
+                Assert.Equal(0, code);
+
+                var text = output.ToString();
+
+                // should show the todo task
+                Assert.Contains("todo-task", text);
+
+                // should not show the done task
+                Assert.DoesNotContain("done-task", text);
+            }
+            finally
+            {
+                Console.SetOut(originalOut);
+                Console.SetError(originalErr);
+                File.Delete(tempFile);
+            }
+        }
+
+        [Fact]
         public void List_Done_FiltersOnlyDoneTasks()
         {
             var tempFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+            var originalOut = Console.Out;
+            var originalErr = Console.Error;
             try
             {
                 // Arrange: seed two tasks (one todo, one done)
@@ -724,6 +808,257 @@
             }
             finally
             {
+                Console.SetOut(originalOut);
+                Console.SetError(originalErr);
+                File.Delete(tempFile);
+            }
+        }
+
+        [Fact]
+        public void List_InProgress_FiltersOnlyInProgressTasks()
+        {
+            var tempFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+            var originalOut = Console.Out;
+            var originalErr = Console.Error;
+            try
+            {
+                var seedTasks = new[]
+                {
+                new TaskItem { Id = 1, Description = "inprogress-task", TaskStatus = TaskStatus.InProgress},
+                new TaskItem { Id = 2, Description = "done-task", TaskStatus = TaskStatus.Done },
+            };
+
+                var jsonOptions = new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                    Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
+                };
+
+                File.WriteAllText(tempFile, JsonSerializer.Serialize(seedTasks, jsonOptions));
+
+                var app = new TaskApp(tempFile);
+
+                var output = new StringWriter();
+                Console.SetOut(output);
+                Console.SetError(new StringWriter());
+
+                // Act
+                int code = app.Run(new[] { "list", "inprogress" });
+
+                // Assert
+                Assert.Equal(0, code);
+
+                var text = output.ToString();
+
+                // should show the inprogress task
+                Assert.Contains("inprogress-task", text);
+
+                // should not show the done task
+                Assert.DoesNotContain("done-task", text);
+            }
+            finally
+            {
+                Console.SetOut(originalOut);
+                Console.SetError(originalErr);
+                File.Delete(tempFile);
+            }
+        }
+
+        [Fact]
+        public void List_In_Progress_FiltersOnlyInProgressTasks()
+        {
+            var tempFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+            var originalOut = Console.Out;
+            var originalErr = Console.Error;
+            try
+            {
+                var seedTasks = new[]
+                {
+                new TaskItem { Id = 1, Description = "inprogress-task", TaskStatus = TaskStatus.InProgress},
+                new TaskItem { Id = 2, Description = "done-task", TaskStatus = TaskStatus.Done },
+            };
+
+                var jsonOptions = new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                    Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
+                };
+
+                File.WriteAllText(tempFile, JsonSerializer.Serialize(seedTasks, jsonOptions));
+
+                var app = new TaskApp(tempFile);
+
+                var output = new StringWriter();
+                Console.SetOut(output);
+                Console.SetError(new StringWriter());
+
+                // Act
+                int code = app.Run(new[] { "list", "in_progress" });
+
+                // Assert
+                Assert.Equal(0, code);
+
+                var text = output.ToString();
+
+                // should show the inprogress task
+                Assert.Contains("inprogress-task", text);
+
+                // should not show the done task
+                Assert.DoesNotContain("done-task", text);
+            }
+            finally
+            {
+                Console.SetOut(originalOut);
+                Console.SetError(originalErr);
+                File.Delete(tempFile);
+            }
+        }
+
+        [Fact]
+        public void List_FilterInDashProgress_FiltersOnlyInProgressTasks()
+        {
+            var tempFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+            var originalOut = Console.Out;
+            var originalErr = Console.Error;
+            try
+            {
+                var seedTasks = new[]
+                {
+                new TaskItem { Id = 1, Description = "inprogress-task", TaskStatus = TaskStatus.InProgress},
+                new TaskItem { Id = 2, Description = "done-task", TaskStatus = TaskStatus.Done },
+            };
+
+                var jsonOptions = new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                    Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
+                };
+
+                File.WriteAllText(tempFile, JsonSerializer.Serialize(seedTasks, jsonOptions));
+
+                var app = new TaskApp(tempFile);
+
+                var output = new StringWriter();
+                Console.SetOut(output);
+                Console.SetError(new StringWriter());
+
+                // Act
+                int code = app.Run(new[] { "list", "in-progress" });
+
+                // Assert
+                Assert.Equal(0, code);
+
+                var text = output.ToString();
+
+                // should show the inprogress task
+                Assert.Contains("inprogress-task", text);
+
+                // should not show the done task
+                Assert.DoesNotContain("done-task", text);
+            }
+            finally
+            {
+                Console.SetOut(originalOut);
+                Console.SetError(originalErr);
+                File.Delete(tempFile);
+            }
+        }
+
+        [Fact]
+        public void List_No_Filter_FilterAll()
+        {
+            var tempFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+            var originalOut = Console.Out;
+            var originalErr = Console.Error;
+            try
+            {                
+                var seedTasks = new[]
+                {
+                new TaskItem { Id = 1, Description = "todo-task", TaskStatus = TaskStatus.Todo},
+                new TaskItem { Id = 2, Description = "inprogress-task", TaskStatus = TaskStatus.InProgress},
+                new TaskItem { Id = 3, Description = "done-task", TaskStatus = TaskStatus.Done },
+            };
+
+                var jsonOptions = new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                    Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
+                };
+
+                File.WriteAllText(tempFile, JsonSerializer.Serialize(seedTasks, jsonOptions));
+
+                var app = new TaskApp(tempFile);
+
+                var output = new StringWriter();
+                Console.SetOut(output);
+                Console.SetError(new StringWriter());
+
+                // Act
+                int code = app.Run(new[] { "list"});
+
+                // Assert
+                Assert.Equal(0, code);
+
+                var text = output.ToString();
+
+                // should show the all tasks
+                Assert.Contains("todo-task", text);
+                Assert.Contains("inprogress-task", text);
+                Assert.Contains("done-task", text);
+            }
+            finally
+            {
+                Console.SetOut(originalOut);
+                Console.SetError(originalErr);
+                File.Delete(tempFile);
+            }
+        }
+
+        [Fact]
+        public void List_Valid_Filter_FilterNoMatches()
+        {
+            var tempFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+            var originalOut = Console.Out;
+            var originalErr = Console.Error;
+            try
+            {
+                // Arrange: seed two tasks (one todo, one done)
+                var seedTasks = new[]
+                {
+                new TaskItem { Id = 1, Description = "todo-task", TaskStatus = TaskStatus.Todo},
+                new TaskItem { Id = 2, Description = "inprogress-task", TaskStatus = TaskStatus.InProgress},
+            };
+
+                var jsonOptions = new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                    Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
+                };
+
+                File.WriteAllText(tempFile, JsonSerializer.Serialize(seedTasks, jsonOptions));
+
+                var app = new TaskApp(tempFile);
+
+                var output = new StringWriter();
+                Console.SetOut(output);
+                Console.SetError(new StringWriter());
+
+                // Act
+                int code = app.Run(new[] { "list", "done" });
+
+                // Assert
+                Assert.Equal(0, code);
+
+                var text = output.ToString();
+
+                // should show no tasks returned
+                Assert.DoesNotContain("todo-task", text);
+                Assert.DoesNotContain("inprogress-task", text);
+            }
+            finally
+            {
+                Console.SetOut(originalOut);
+                Console.SetError(originalErr);
                 File.Delete(tempFile);
             }
         }
