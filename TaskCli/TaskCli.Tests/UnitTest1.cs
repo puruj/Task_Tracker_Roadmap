@@ -7,6 +7,96 @@
     using System.Text.Json;
     using System.Text.Json.Serialization;
 
+
+    public class RunCommandTests
+    {
+        [Fact]
+        public void HelpCommand_PrintsUsageAndReturnsZero()
+        {
+            var tempFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+            var originalOut = Console.Out;
+            var originalErr = Console.Error;
+
+            try
+            {
+                var app = new TaskApp(tempFile);
+
+                var output = new StringWriter();
+                Console.SetOut(output);
+                Console.SetError(new StringWriter());
+
+                int code = app.Run(new[] { "help" });
+
+                Assert.Equal(0, code);
+                Assert.Contains("Usage:", output.ToString());
+            }
+            finally
+            {
+                Console.SetOut(originalOut);
+                Console.SetError(originalErr);
+                if (File.Exists(tempFile)) File.Delete(tempFile);
+            }
+        }
+
+        [Fact]
+        public void NoArgs_PrintsUsageAndReturnsZero()
+        {
+            var tempFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+            var originalOut = Console.Out;
+            var originalErr = Console.Error;
+
+            try
+            {
+                var app = new TaskApp(tempFile);
+
+                var output = new StringWriter();
+                Console.SetOut(output);
+                Console.SetError(new StringWriter());
+
+                int code = app.Run(Array.Empty<string>());
+
+                Assert.Equal(0, code);
+                Assert.Contains("Usage:", output.ToString());
+            }
+            finally
+            {
+                Console.SetOut(originalOut);
+                Console.SetError(originalErr);
+                if (File.Exists(tempFile)) File.Delete(tempFile);
+            }
+        }
+
+        [Fact]
+        public void UnknownCommand_ShowsErrorAndReturnsOne()
+        {
+            var tempFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+            var originalOut = Console.Out;
+            var originalErr = Console.Error;
+
+            try
+            {
+                var app = new TaskApp(tempFile);
+
+                var output = new StringWriter();
+                var error = new StringWriter();
+                Console.SetOut(output);
+                Console.SetError(error);
+
+                int code = app.Run(new[] { "wat" });
+
+                Assert.Equal(1, code);
+                Assert.Contains("Unknown command: wat", error.ToString());
+                Assert.Contains("Usage:", output.ToString());
+            }
+            finally
+            {
+                Console.SetOut(originalOut);
+                Console.SetError(originalErr);
+                if (File.Exists(tempFile)) File.Delete(tempFile);
+            }
+        }
+    }
+
     public class AddCommandTests
     {
         [Fact]
@@ -628,7 +718,57 @@
         }
 
         [Fact]
-        public void MarkInProgress_ValidId_UpdatesStatusAndPersists()
+        public void Todo_ValidId_SetsStatusTodo()
+        {
+            var tempFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+            var originalOut = Console.Out;
+            var originalErr = Console.Error;
+
+            try
+            {
+                var app = new TaskApp(tempFile);
+
+                // Add a task first
+                Console.SetOut(new StringWriter());
+                Console.SetError(new StringWriter());
+                var addCode = app.Run(new[] { "add", "Sample", "task" });
+                Assert.Equal(0, addCode);
+
+                // Act: mark it todo
+                var output = new StringWriter();
+                Console.SetOut(output);
+                Console.SetError(new StringWriter());
+
+                int code = app.Run(new[] { "mark-todo", "1" });
+
+                Assert.Equal(0, code);
+                Assert.Contains("Task 1 marked as todo.", output.ToString());
+
+                // Verify JSON
+                var json = File.ReadAllText(tempFile);
+                var options = new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true,
+                    Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
+                };
+                var tasks = JsonSerializer.Deserialize<List<TaskItem>>(json, options);
+
+                Assert.NotNull(tasks);
+                Assert.Single(tasks);
+                var task = tasks![0];
+                Assert.Equal(1, task.Id);
+                Assert.Equal(TaskStatus.Todo, task.TaskStatus);
+            }
+            finally
+            {
+                Console.SetOut(originalOut);
+                Console.SetError(originalErr);
+                if (File.Exists(tempFile)) File.Delete(tempFile);
+            }
+        }
+
+        [Fact]
+        public void MarkInProgress_ValidId_SetsStatusInProgress()
         {
             var tempFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
             var originalOut = Console.Out;
@@ -677,6 +817,56 @@
             }
         }
 
+        [Fact]
+        public void MarkDone_ValidId_SetsStatusDone()
+        {
+            var tempFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+            var originalOut = Console.Out;
+            var originalErr = Console.Error;
+
+            try
+            {
+                var app = new TaskApp(tempFile);
+
+                // Add a task first
+                Console.SetOut(new StringWriter());
+                Console.SetError(new StringWriter());
+                var addCode = app.Run(new[] { "add", "Sample", "task" });
+                Assert.Equal(0, addCode);
+
+                // Act: mark it done
+                var output = new StringWriter();
+                Console.SetOut(output);
+                Console.SetError(new StringWriter());
+
+                int code = app.Run(new[] { "mark-done", "1" });
+
+                Assert.Equal(0, code);
+                Assert.Contains("Task 1 marked as done.", output.ToString());
+
+                // Verify JSON
+                var json = File.ReadAllText(tempFile);
+                var options = new JsonSerializerOptions
+                {
+                    PropertyNameCaseInsensitive = true,
+                    Converters = { new JsonStringEnumConverter(JsonNamingPolicy.CamelCase) }
+                };
+                var tasks = JsonSerializer.Deserialize<List<TaskItem>>(json, options);
+
+                Assert.NotNull(tasks);
+                Assert.Single(tasks);
+                var task = tasks![0];
+                Assert.Equal(1, task.Id);
+                Assert.Equal(TaskStatus.Done, task.TaskStatus);
+            }
+            finally
+            {
+                Console.SetOut(originalOut);
+                Console.SetError(originalErr);
+                if (File.Exists(tempFile)) File.Delete(tempFile);
+            }
+        }
+
     }
 
     public class ListCommandTests
@@ -710,7 +900,6 @@
                 File.Delete(tempFile);
             }
         }
-
 
         [Fact]
         public void List_Todo_FiltersOnlyTodoTasks()
@@ -1054,6 +1243,109 @@
                 // should show no tasks returned
                 Assert.DoesNotContain("todo-task", text);
                 Assert.DoesNotContain("inprogress-task", text);
+            }
+            finally
+            {
+                Console.SetOut(originalOut);
+                Console.SetError(originalErr);
+                File.Delete(tempFile);
+            }
+        }
+
+        [Fact]
+        public void List_NoFile_PrintsNoTasksAndReturnsZero()
+        {
+            var tempFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+            var originalOut = Console.Out;
+            var originalErr = Console.Error;
+            try
+            {
+                var app = new TaskApp(tempFile);
+
+                var output = new StringWriter();
+                Console.SetOut(output);
+                Console.SetError(new StringWriter());
+
+                // Act
+                int code = app.Run(new[] { "list"});
+
+                // Assert
+                Assert.Equal(0, code);
+
+                var text = output.ToString();
+
+                // should show no tasks returned
+                Assert.Contains("No tasks found.", text);
+            }
+            finally
+            {
+                Console.SetOut(originalOut);
+                Console.SetError(originalErr);
+                File.Delete(tempFile);
+            }
+        }
+
+        [Fact]
+        public void List_EmptyFile_PrintsNoTasks()
+        {
+            var tempFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+            var originalOut = Console.Out;
+            var originalErr = Console.Error;
+            try
+            {
+                File.WriteAllText(tempFile, string.Empty);
+
+                var app = new TaskApp(tempFile);
+
+                var output = new StringWriter();
+                Console.SetOut(output);
+                Console.SetError(new StringWriter());
+
+                // Act
+                int code = app.Run(new[] { "list" });
+
+                // Assert
+                Assert.Equal(0, code);
+
+                var text = output.ToString();
+
+                // should show no tasks returned
+                Assert.Contains("No tasks found.", text);
+            }
+            finally
+            {
+                Console.SetOut(originalOut);
+                Console.SetError(originalErr);
+                File.Delete(tempFile);
+            }
+        }
+
+        [Fact]
+        public void List_CorruptFile_DoesNotThrowAndPrintsNoTasks()
+        {
+            var tempFile = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString());
+            var originalOut = Console.Out;
+            var originalErr = Console.Error;
+            try
+            {
+                File.WriteAllText(tempFile, "this is not json at all");
+
+                var app = new TaskApp(tempFile);
+
+                var output = new StringWriter();
+                Console.SetOut(output);
+                Console.SetError(new StringWriter());
+
+                // Act
+                int code = app.Run(new[] { "list" });
+
+                // Assert
+                Assert.Equal(0, code);
+
+                var text = output.ToString();
+
+                // should show no tasks returned
+                Assert.Contains("No tasks found.", text);
             }
             finally
             {
