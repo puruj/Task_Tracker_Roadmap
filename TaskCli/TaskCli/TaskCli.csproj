@@ -5,6 +5,23 @@
     <TargetFramework>net8.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+
+    <!-- Turn this into a dotnet tool -->
+    <PackAsTool>true</PackAsTool>
+
+    <!-- The name users will type: `task-cli` -->
+    <ToolCommandName>task-cli</ToolCommandName>
+
+    <!-- NuGet-style package metadata -->
+    <PackageId>Puruj.TaskCli</PackageId>
+    <Version>1.0.0</Version>
+    <Authors>puruj</Authors>
+    <Description>Simple task-tracking CLI with JSON storage and tests.</Description>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <RepositoryUrl>https://github.com/puruj/Task_Tracker_Roadmap</RepositoryUrl>
+
+    <!-- Optional: build will also produce the .nupkg -->
+    <GeneratePackageOnBuild>true</GeneratePackageOnBuild>
   </PropertyGroup>
 
 </Project>
